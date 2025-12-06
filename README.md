@@ -26,6 +26,15 @@ brew install glfw
 
 ## Build & Run
 
+### Make
+
+```text
+make
+./pyramid
+```
+
+## Manual Compilation
+
 Linux:
 
 ```text
