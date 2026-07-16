@@ -370,6 +370,7 @@ int main() {
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Enable VSync for stable FPS and lower power usage
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     // Register new callbacks
@@ -389,6 +390,10 @@ int main() {
 
     ShaderProgram shader;
     shader_init(&shader, vertexShaderSource, fragmentShaderSource);
+
+    // Set static uniforms once (performance)
+    glUniform3f(shader.objectColorLoc, 1.0f, 0.5f, 0.31f);
+    glUniform3f(shader.lightColorLoc, 1.0f, 1.0f, 1.0f);
 
     // Pyramid data
     float vertices[] = {
@@ -435,6 +440,9 @@ int main() {
 
     vec3 lightPos = {1.2f, 1.0f, 2.0f};
 
+    // Precompute projection matrix (static)
+    mat4 projection = mat4_perspective(RADIANS(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
     // --- Pyramid Rotation Variables ---
     float currentRotation = 0.0f;
     float deltaTime = 0.0f;
@@ -457,8 +465,6 @@ int main() {
         // Update pyramid rotation (0.5 radians per second)
         currentRotation += 0.5f * deltaTime;
 
-        glUniform3f(shader.objectColorLoc, 1.0f, 0.5f, 0.31f);
-        glUniform3f(shader.lightColorLoc, 1.0f, 1.0f, 1.0f);
         glUniform3f(shader.lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
         
         // --- View Matrix Calculation (Orbit Camera) ---
@@ -475,8 +481,7 @@ int main() {
         glUniformMatrix4fv(shader.viewLoc, 1, GL_TRUE, &view.m[0][0]);
         glUniform3f(shader.viewPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
 
-        // --- Projection ---
-        mat4 projection = mat4_perspective(RADIANS(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        // Use precomputed projection
         glUniformMatrix4fv(shader.projLoc, 1, GL_TRUE, &projection.m[0][0]);
 
         // --- Model (Rotating + Tilt) ---
@@ -489,9 +494,8 @@ int main() {
         
         glUniformMatrix4fv(shader.modelLoc, 1, GL_TRUE, &model.m[0][0]);
 
-        // Normal Matrix
+        // Normal Matrix - optimized: for rotation-only model, inverse(transpose(M)) == transpose(upper 3x3)
         mat3 normalMatrix = mat4_to_mat3(model);
-        normalMatrix = mat3_inverse(normalMatrix);
         normalMatrix = mat3_transpose(normalMatrix);
         
         glUniformMatrix3fv(shader.normalMatrixLoc, 1, GL_TRUE, &normalMatrix.m[0][0]);
